@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
-import { askClaude, ChatMessage } from "@/lib/anthropic";
+import { askGemini, ChatMessage } from "@/lib/gemini";
 
 const SYSTEM_PROMPT_HEADER = `You are the LiMStudios Process Assistant. You answer questions ONLY using the process documents provided below in <processes>. These are the company's internal, real, documented workflows.
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   ];
 
   try {
-    const reply = await askClaude({ systemPrompt, messages });
+    const reply = await askGemini({ systemPrompt, messages });
 
     // Pull out the SOURCES line so the UI can render citation chips separately.
     const sourceMatch = reply.match(/SOURCES:\s*(.*)$/im);
