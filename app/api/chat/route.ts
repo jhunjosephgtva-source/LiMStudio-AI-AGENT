@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { askGroq, ChatMessage } from "@/lib/groq";
+import { rankByRelevance, selectWithinBudget } from "@/lib/retrieval";
+
+const MAX_CONTEXT_CHARS = 9000;
+const MAX_PROCESSES = 6;
 
 const SYSTEM_PROMPT_HEADER = `You are the LiMStudios Process Assistant. You answer questions ONLY using the process documents provided below in <processes>. These are the company's internal, real, documented workflows.
 
@@ -32,9 +36,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const ranked = rankByRelevance(userMessage, processes || []);
+  const selected = selectWithinBudget(ranked, MAX_CONTEXT_CHARS, MAX_PROCESSES);
+
   const contextBlock =
-    processes && processes.length > 0
-      ? processes
+    selected.length > 0
+      ? selected
           .map((p) => `<process title="${p.title}" category="${p.category || "General"}">\n${p.content}\n</process>`)
           .join("\n\n")
       : "(No processes are currently selected/available.)";
@@ -42,7 +49,7 @@ export async function POST(req: NextRequest) {
   const systemPrompt = `${SYSTEM_PROMPT_HEADER}\n\n<processes>\n${contextBlock}\n</processes>`;
 
   const messages: ChatMessage[] = [
-    ...history.slice(-10), // keep last few turns for continuity
+    ...history.slice(-6), // keep a little continuity without ballooning token usage
     { role: "user", content: userMessage },
   ];
 
